@@ -9,10 +9,12 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.example.myapplication.R
 import com.example.myapplication.data.Recipe
+import java.io.File
 
 class RecipeAdapter(
     private var recipes: List<Recipe>,
-    private val onRecipeClick: (Recipe) -> Unit
+    private val onRecipeClick: (Recipe) -> Unit,
+    private val onRecipeLongClick: (Recipe) -> Unit
 ) : RecyclerView.Adapter<RecipeAdapter.RecipeViewHolder>() {
 
     class RecipeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -33,9 +35,14 @@ class RecipeAdapter(
         holder.descriptionView.text = recipe.description
 
         if (recipe.imageUri != null) {
-            holder.imageView.load(recipe.imageUri) {
-                crossfade(true)
-                placeholder(R.drawable.ic_placeholder)
+            val imageFile = File(recipe.imageUri)
+            if (imageFile.exists()) {
+                holder.imageView.load(imageFile) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_placeholder)
+                }
+            } else {
+                holder.imageView.setImageResource(R.drawable.ic_placeholder)
             }
         } else {
             holder.imageView.setImageResource(R.drawable.ic_placeholder)
@@ -43,6 +50,11 @@ class RecipeAdapter(
 
         holder.itemView.setOnClickListener {
             onRecipeClick(recipe)
+        }
+
+        holder.itemView.setOnLongClickListener {
+            onRecipeLongClick(recipe)
+            true
         }
     }
 
