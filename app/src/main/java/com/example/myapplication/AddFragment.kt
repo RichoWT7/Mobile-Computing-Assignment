@@ -1,6 +1,7 @@
 package com.example.myapplication
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -30,6 +31,17 @@ class AddFragment : Fragment() {
     ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
+
+            // Take persistable permission
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             imagePreview.load(it)
         }
     }
@@ -88,7 +100,7 @@ class AddFragment : Fragment() {
     private fun saveImageToInternalStorage(uri: Uri): String? {
         return try {
             val context = requireContext()
-            val inputStream = context.contentResolver.openInputStream(uri)
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
 
             // Create a unique filename
             val fileName = "recipe_${UUID.randomUUID()}.jpg"
@@ -102,16 +114,17 @@ class AddFragment : Fragment() {
             val file = File(directory, fileName)
 
             // Copy the image to internal storage
-            inputStream?.use { input ->
+            inputStream.use { input ->
                 FileOutputStream(file).use { output ->
                     input.copyTo(output)
                 }
             }
 
-            // Return the file path
+            // Return the file path (this is permanent!)
             file.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
+            Toast.makeText(context, "Error saving image", Toast.LENGTH_SHORT).show()
             null
         }
     }
