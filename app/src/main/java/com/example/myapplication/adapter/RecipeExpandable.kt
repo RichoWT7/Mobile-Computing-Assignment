@@ -1,6 +1,11 @@
 package com.example.myapplication.adapter
 
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,6 +13,8 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.PopupMenu
+import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.example.myapplication.R
@@ -16,8 +23,14 @@ import java.io.File
 
 class RecipeExpandableAdapter(
     private var recipes: List<Recipe>,
-    private val onDeleteClick: (Recipe) -> Unit
+    private val onDeleteClick: (Recipe) -> Unit,
+    private val onShareToCommunity: (Recipe) -> Unit,
+    private val onShareSuccess: ((Recipe) -> Unit)? = null
 ) : RecyclerView.Adapter<RecipeExpandableAdapter.RecipeViewHolder>() {
+
+    companion object {
+        private const val SHARE_ACTION = "com.example.myapplication.SHARE_COMPLETE"
+    }
 
     class RecipeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val collapsedView: View = view.findViewById(R.id.collapsed_view)
@@ -75,9 +88,6 @@ class RecipeExpandableAdapter(
         holder.ingredientsView.text = recipe.ingredients?.replace(",", "\n• ") ?: "No ingredients listed"
         holder.instructionsView.text = recipe.instructions ?: "No instructions provided"
 
-        // Show/hide expanded details based on visibility
-        val isExpanded = holder.expandedView.visibility == View.VISIBLE
-
         // Toggle expand/collapse
         holder.collapsedView.setOnClickListener {
             toggleExpanded(holder)
@@ -87,9 +97,9 @@ class RecipeExpandableAdapter(
             toggleExpanded(holder)
         }
 
-        // Share button
+        // Share button - now shows menu
         holder.shareButton.setOnClickListener {
-            shareRecipe(holder.itemView.context, recipe)
+            showShareMenu(it, recipe)
         }
 
         // Delete button
@@ -108,7 +118,28 @@ class RecipeExpandableAdapter(
         }
     }
 
-    private fun shareRecipe(context: android.content.Context, recipe: Recipe) {
+    private fun showShareMenu(view: View, recipe: Recipe) {
+        val popupMenu = PopupMenu(view.context, view)
+        popupMenu.menuInflater.inflate(R.menu.share_menu, popupMenu.menu)
+
+        popupMenu.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.share_external -> {
+                    shareRecipeExternal(view.context, recipe)
+                    true
+                }
+                R.id.share_community -> {
+                    onShareToCommunity(recipe)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        popupMenu.show()
+    }
+
+    private fun shareRecipeExternal(context: Context, recipe: Recipe) {
         val shareText = buildString {
             append("Check out this recipe: ${recipe.title}\n\n")
             append("${recipe.description}\n\n")
@@ -128,7 +159,48 @@ class RecipeExpandableAdapter(
             type = "text/plain"
         }
 
-        context.startActivity(Intent.createChooser(shareIntent, "Share Recipe"))
+        // Create a BroadcastReceiver to listen for share completion
+        val shareReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val componentName = intent?.getParcelableExtra<android.content.ComponentName>(Intent.EXTRA_CHOSEN_COMPONENT)
+
+                if (componentName != null) {
+                    // User selected an app to share with
+                    Toast.makeText(context, "Shared successfully!", Toast.LENGTH_SHORT).show()
+                    onShareSuccess?.invoke(recipe)
+                } else {
+                    // User cancelled the share
+                    Toast.makeText(context, "Share cancelled", Toast.LENGTH_SHORT).show()
+                }
+
+                // Unregister the receiver
+                context?.unregisterReceiver(this)
+            }
+        }
+
+        // Register the receiver
+        val filter = IntentFilter(SHARE_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(shareReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(shareReceiver, filter)
+        }
+
+        // Create PendingIntent for the broadcast
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(SHARE_ACTION),
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+        )
+
+        // Create chooser with the PendingIntent
+        val chooserIntent = Intent.createChooser(shareIntent, "Share Recipe", pendingIntent.intentSender)
+        context.startActivity(chooserIntent)
     }
 
     override fun getItemCount() = recipes.size
