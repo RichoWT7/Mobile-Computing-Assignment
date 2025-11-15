@@ -10,6 +10,14 @@
         android:orientation="vertical"
         android:gravity="center_horizontal">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add New Recipe"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
         <ImageView
             android:id="@+id/image_preview"
             android:layout_width="200dp"
@@ -23,32 +31,95 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp"
             android:text="Select Image" />
 
         <EditText
             android:id="@+id/recipe_title_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:hint="Recipe Title"
-            android:inputType="text" />
+            android:hint="Recipe Title *"
+            android:inputType="text"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
 
         <EditText
             android:id="@+id/recipe_description_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Description"
+            android:hint="Short Description *"
+            android:inputType="textMultiLine"
+            android:minLines="2"
+            android:maxLines="3"
+            android:gravity="top"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- NEW FIELDS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <EditText
+                android:id="@+id/recipe_prep_time_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Prep Time (e.g. 30 mins)"
+                android:inputType="text"
+                android:padding="12dp"
+                android:layout_marginEnd="8dp" />
+
+            <EditText
+                android:id="@+id/recipe_servings_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Servings (e.g. 4)"
+                android:inputType="text"
+                android:padding="12dp" />
+
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/recipe_ingredients_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Ingredients (comma-separated)&#10;e.g. 2 cups flour, 1 egg, 1 tsp salt"
             android:inputType="textMultiLine"
             android:minLines="4"
-            android:gravity="top" />
+            android:gravity="top"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
+
+        <EditText
+            android:id="@+id/recipe_instructions_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Instructions&#10;Enter step-by-step cooking instructions..."
+            android:inputType="textMultiLine"
+            android:minLines="6"
+            android:gravity="top"
+            android:padding="12dp"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="* Required fields"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="16dp" />
 
         <Button
             android:id="@+id/save_recipe_btn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Save Recipe" />
+            android:text="Save Recipe"
+            android:textSize="16sp"
+            android:padding="16dp" />
 
     </LinearLayout>
 

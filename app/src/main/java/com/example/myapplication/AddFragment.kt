@@ -1,7 +1,6 @@
 package com.example.myapplication
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -31,17 +30,6 @@ class AddFragment : Fragment() {
     ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
-
-            // Take persistable permission
-            try {
-                requireContext().contentResolver.takePersistableUriPermission(
-                    it,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
             imagePreview.load(it)
         }
     }
@@ -56,6 +44,10 @@ class AddFragment : Fragment() {
         imagePreview = view.findViewById(R.id.image_preview)
         val titleInput = view.findViewById<EditText>(R.id.recipe_title_input)
         val descriptionInput = view.findViewById<EditText>(R.id.recipe_description_input)
+        val prepTimeInput = view.findViewById<EditText>(R.id.recipe_prep_time_input)
+        val servingsInput = view.findViewById<EditText>(R.id.recipe_servings_input)
+        val ingredientsInput = view.findViewById<EditText>(R.id.recipe_ingredients_input)
+        val instructionsInput = view.findViewById<EditText>(R.id.recipe_instructions_input)
         val selectImageBtn = view.findViewById<Button>(R.id.select_image_btn)
         val saveBtn = view.findViewById<Button>(R.id.save_recipe_btn)
 
@@ -66,13 +58,21 @@ class AddFragment : Fragment() {
         saveBtn.setOnClickListener {
             val title = titleInput.text.toString().trim()
             val description = descriptionInput.text.toString().trim()
+            val prepTime = prepTimeInput.text.toString().trim()
+            val servings = servingsInput.text.toString().trim()
+            val ingredients = ingredientsInput.text.toString().trim()
+            val instructions = instructionsInput.text.toString().trim()
 
             if (title.isEmpty()) {
                 Toast.makeText(context, "Please enter a title", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Save image permanently to internal storage
+            if (description.isEmpty()) {
+                Toast.makeText(context, "Please enter a description", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
             val permanentImagePath = selectedImageUri?.let { uri ->
                 saveImageToInternalStorage(uri)
             }
@@ -80,14 +80,21 @@ class AddFragment : Fragment() {
             val recipe = Recipe(
                 title = title,
                 description = description,
-                imageUri = permanentImagePath
+                imageUri = permanentImagePath,
+                prepTime = prepTime.ifEmpty { null },
+                servings = servings.ifEmpty { null },
+                ingredients = ingredients.ifEmpty { null },
+                instructions = instructions.ifEmpty { null }
             )
 
             recipeViewModel.insert(recipe)
 
-            // Clear form
             titleInput.text.clear()
             descriptionInput.text.clear()
+            prepTimeInput.text.clear()
+            servingsInput.text.clear()
+            ingredientsInput.text.clear()
+            instructionsInput.text.clear()
             selectedImageUri = null
             imagePreview.setImageResource(R.drawable.ic_placeholder)
 
@@ -106,21 +113,18 @@ class AddFragment : Fragment() {
             val fileName = "recipe_${UUID.randomUUID()}.jpg"
             val directory = File(context.filesDir, "recipe_images")
 
-            // Create directory if it doesn't exist
             if (!directory.exists()) {
                 directory.mkdirs()
             }
 
             val file = File(directory, fileName)
 
-            // Copy the image to internal storage
             inputStream.use { input ->
                 FileOutputStream(file).use { output ->
                     input.copyTo(output)
                 }
             }
 
-            // Return the file path (this is permanent!)
             file.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()

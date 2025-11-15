@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -23,6 +24,11 @@ class LoginActivity : AppCompatActivity() {
 
         auth = FirebaseAuth.getInstance()
         preferencesManager = PreferencesManager(this)
+
+        // TEST FIREBASE CONNECTION - ADD THESE LINES
+        Log.d("FirebaseTest", "Firebase Auth instance: $auth")
+        Log.d("FirebaseTest", "Firebase App: ${com.google.firebase.FirebaseApp.getInstance()}")
+        Toast.makeText(this, "Firebase initialized", Toast.LENGTH_SHORT).show()
 
         // Check if user is already logged in
         if (auth.currentUser != null) {
@@ -53,17 +59,24 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun loginUser(email: String, password: String) {
+        Log.d("FirebaseTest", "Attempting login for: $email")
+
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
+                    Log.d("FirebaseTest", "Login successful!")
                     CoroutineScope(Dispatchers.IO).launch {
                         preferencesManager.saveUserEmail(email)
                     }
                     Toast.makeText(this, "Login successful!", Toast.LENGTH_SHORT).show()
                     navigateToMain()
                 } else {
+                    Log.e("FirebaseTest", "Login failed: ${task.exception?.message}")
                     Toast.makeText(this, "Login failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                 }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FirebaseTest", "Login error: ${exception.message}", exception)
             }
     }
 

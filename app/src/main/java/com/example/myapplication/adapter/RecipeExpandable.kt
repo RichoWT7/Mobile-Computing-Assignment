@@ -1,0 +1,140 @@
+package com.example.myapplication.adapter
+
+import android.content.Intent
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import com.example.myapplication.R
+import com.example.myapplication.data.Recipe
+import java.io.File
+
+class RecipeExpandableAdapter(
+    private var recipes: List<Recipe>,
+    private val onDeleteClick: (Recipe) -> Unit
+) : RecyclerView.Adapter<RecipeExpandableAdapter.RecipeViewHolder>() {
+
+    class RecipeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val collapsedView: View = view.findViewById(R.id.collapsed_view)
+        val expandedView: View = view.findViewById(R.id.expanded_view)
+        val expandButton: ImageButton = view.findViewById(R.id.expand_button)
+
+        val imageView: ImageView = view.findViewById(R.id.recipe_image)
+        val imageLarge: ImageView = view.findViewById(R.id.recipe_image_large)
+        val titleView: TextView = view.findViewById(R.id.recipe_title)
+        val descriptionView: TextView = view.findViewById(R.id.recipe_description)
+        val prepTimeView: TextView = view.findViewById(R.id.recipe_prep_time)
+        val servingsView: TextView = view.findViewById(R.id.recipe_servings)
+        val ingredientsView: TextView = view.findViewById(R.id.recipe_ingredients)
+        val instructionsView: TextView = view.findViewById(R.id.recipe_instructions)
+        val shareButton: Button = view.findViewById(R.id.share_button)
+        val deleteButton: Button = view.findViewById(R.id.delete_button)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecipeViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.expandable_recipe, parent, false)
+        return RecipeViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: RecipeViewHolder, position: Int) {
+        val recipe = recipes[position]
+
+        holder.titleView.text = recipe.title
+        holder.descriptionView.text = recipe.description
+
+        // Load images
+        if (recipe.imageUri != null) {
+            val imageFile = File(recipe.imageUri)
+            if (imageFile.exists()) {
+                holder.imageView.load(imageFile) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_placeholder)
+                }
+                holder.imageLarge.load(imageFile) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_placeholder)
+                }
+            } else {
+                holder.imageView.setImageResource(R.drawable.ic_placeholder)
+                holder.imageLarge.setImageResource(R.drawable.ic_placeholder)
+            }
+        } else {
+            holder.imageView.setImageResource(R.drawable.ic_placeholder)
+            holder.imageLarge.setImageResource(R.drawable.ic_placeholder)
+        }
+
+        // Set expanded details
+        holder.prepTimeView.text = "Prep Time: ${recipe.prepTime ?: "N/A"}"
+        holder.servingsView.text = "Servings: ${recipe.servings ?: "N/A"}"
+        holder.ingredientsView.text = recipe.ingredients?.replace(",", "\n• ") ?: "No ingredients listed"
+        holder.instructionsView.text = recipe.instructions ?: "No instructions provided"
+
+        // Show/hide expanded details based on visibility
+        val isExpanded = holder.expandedView.visibility == View.VISIBLE
+
+        // Toggle expand/collapse
+        holder.collapsedView.setOnClickListener {
+            toggleExpanded(holder)
+        }
+
+        holder.expandButton.setOnClickListener {
+            toggleExpanded(holder)
+        }
+
+        // Share button
+        holder.shareButton.setOnClickListener {
+            shareRecipe(holder.itemView.context, recipe)
+        }
+
+        // Delete button
+        holder.deleteButton.setOnClickListener {
+            onDeleteClick(recipe)
+        }
+    }
+
+    private fun toggleExpanded(holder: RecipeViewHolder) {
+        if (holder.expandedView.visibility == View.GONE) {
+            holder.expandedView.visibility = View.VISIBLE
+            holder.expandButton.rotation = 180f
+        } else {
+            holder.expandedView.visibility = View.GONE
+            holder.expandButton.rotation = 0f
+        }
+    }
+
+    private fun shareRecipe(context: android.content.Context, recipe: Recipe) {
+        val shareText = buildString {
+            append("Check out this recipe: ${recipe.title}\n\n")
+            append("${recipe.description}\n\n")
+            if (recipe.prepTime != null) append("Prep Time: ${recipe.prepTime}\n")
+            if (recipe.servings != null) append("Servings: ${recipe.servings}\n\n")
+            if (recipe.ingredients != null) {
+                append("Ingredients:\n${recipe.ingredients.replace(",", "\n")}\n\n")
+            }
+            if (recipe.instructions != null) {
+                append("Instructions:\n${recipe.instructions}")
+            }
+        }
+
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            type = "text/plain"
+        }
+
+        context.startActivity(Intent.createChooser(shareIntent, "Share Recipe"))
+    }
+
+    override fun getItemCount() = recipes.size
+
+    fun updateRecipes(newRecipes: List<Recipe>) {
+        recipes = newRecipes
+        notifyDataSetChanged()
+    }
+}

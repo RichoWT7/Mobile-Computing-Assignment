@@ -7,15 +7,15 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplication.adapter.RecipeAdapter
+import com.example.myapplication.adapter.RecipeExpandableAdapter
 import com.example.myapplication.data.Recipe
 import com.example.myapplication.viewmodel.RecipeViewModel
 
 class SavedFragment : Fragment() {
     private val recipeViewModel: RecipeViewModel by viewModels()
-    private lateinit var adapter: RecipeAdapter
+    private lateinit var adapter: RecipeExpandableAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -25,15 +25,11 @@ class SavedFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_saved, container, false)
 
         val recyclerView = view.findViewById<RecyclerView>(R.id.recipes_recycler_view)
-        recyclerView.layoutManager = GridLayoutManager(context, 2)
+        recyclerView.layoutManager = LinearLayoutManager(context)
 
-        adapter = RecipeAdapter(
+        adapter = RecipeExpandableAdapter(
             recipes = emptyList(),
-            onRecipeClick = { recipe ->
-                // Handle recipe click - you can add detail view later
-            },
-            onRecipeLongClick = { recipe ->
-                // Show delete confirmation dialog
+            onDeleteClick = { recipe ->
                 showDeleteDialog(recipe)
             }
         )

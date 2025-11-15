@@ -1,4 +1,3 @@
-
 package com.example.myapplication.data
 
 import androidx.room.Entity
@@ -11,5 +10,9 @@ data class Recipe(
     val title: String,
     val description: String,
     val imageUri: String? = null,
+    val ingredients: String? = null,
+    val instructions: String? = null,
+    val prepTime: String? = null,
+    val servings: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
