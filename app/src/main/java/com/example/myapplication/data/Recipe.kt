@@ -14,5 +14,6 @@ data class Recipe(
     val instructions: String? = null,
     val prepTime: String? = null,
     val servings: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val firestoreId: String? = null
 )

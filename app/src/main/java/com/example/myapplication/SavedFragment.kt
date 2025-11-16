@@ -9,29 +9,26 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.adapter.RecipeExpandableAdapter
 import com.example.myapplication.data.CommunityRecipe
 import com.example.myapplication.data.Recipe
-import com.example.myapplication.viewmodel.RecipeViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.io.File
 import java.util.UUID
 
 class SavedFragment : Fragment() {
-    private val recipeViewModel: RecipeViewModel by viewModels()
     private lateinit var adapter: RecipeExpandableAdapter
     private val firestore = FirebaseFirestore.getInstance()
     private val storage = FirebaseStorage.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private var progressDialog: AlertDialog? = null
+    private var progressDialog: android.app.AlertDialog? = null
     private var progressBar: ProgressBar? = null
     private var progressText: TextView? = null
 
@@ -59,11 +56,49 @@ class SavedFragment : Fragment() {
         )
         recyclerView.adapter = adapter
 
-        recipeViewModel.allRecipes.observe(viewLifecycleOwner) { recipes ->
-            adapter.updateRecipes(recipes)
-        }
+        // Load user's saved recipes from Firestore
+        loadSavedRecipes()
 
         return view
+    }
+
+    private fun loadSavedRecipes() {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Toast.makeText(context, "Please log in to view saved recipes", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        firestore.collection("users")
+            .document(userId)
+            .collection("saved_recipes")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Toast.makeText(context, "Error loading recipes: ${error.message}", Toast.LENGTH_SHORT).show()
+                    return@addSnapshotListener
+                }
+
+                val recipes = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        Recipe(
+                            id = doc.id.hashCode(), // Use Firestore doc ID hash as the ID
+                            title = doc.getString("title") ?: "",
+                            description = doc.getString("description") ?: "",
+                            imageUri = doc.getString("imageUri"),
+                            ingredients = doc.getString("ingredients"),
+                            instructions = doc.getString("instructions"),
+                            prepTime = doc.getString("prepTime"),
+                            servings = doc.getString("servings"),
+                            firestoreId = doc.id // Store the Firestore document ID
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+
+                adapter.updateRecipes(recipes)
+            }
     }
 
     private fun showDeleteDialog(recipe: Recipe) {
@@ -71,10 +106,42 @@ class SavedFragment : Fragment() {
             .setTitle("Delete Recipe")
             .setMessage("Are you sure you want to delete '${recipe.title}'?")
             .setPositiveButton("Delete") { _, _ ->
-                recipeViewModel.delete(recipe)
+                deleteRecipe(recipe)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun deleteRecipe(recipe: Recipe) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Toast.makeText(context, "Please log in", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Check if recipe has Firestore ID
+        val firestoreId = recipe.firestoreId
+        if (firestoreId == null) {
+            Toast.makeText(context, "Cannot delete: Recipe ID not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                // Delete using the specific document ID
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("saved_recipes")
+                    .document(firestoreId)
+                    .delete()
+                    .await()
+
+                Toast.makeText(context, "Recipe deleted", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error deleting: ${e.message}", Toast.LENGTH_SHORT).show()
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun shareToCommunity(recipe: Recipe) {
@@ -90,10 +157,6 @@ class SavedFragment : Fragment() {
 
     private fun showProgressDialog(message: String, progress: Int = -1) {
         if (progressDialog == null) {
-            val dialogView = LayoutInflater.from(requireContext()).inflate(
-                android.R.layout.activity_list_item, null
-            )
-
             val layout = android.widget.LinearLayout(requireContext()).apply {
                 orientation = android.widget.LinearLayout.VERTICAL
                 setPadding(60, 40, 60, 40)
@@ -162,26 +225,34 @@ class SavedFragment : Fragment() {
                     timestamp = System.currentTimeMillis()
                 )
 
-                kotlinx.coroutines.withTimeout(30000) { // 30 second timeout
+                kotlinx.coroutines.withTimeout(30000) {
                     firestore.collection("community_recipes")
                         .add(communityRecipe)
                         .await()
                 }
 
-                dismissProgressDialog()
-                Toast.makeText(context, "Recipe shared to community!", Toast.LENGTH_LONG).show()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(context, "Recipe shared to community!", Toast.LENGTH_LONG).show()
+                }
 
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                dismissProgressDialog()
-                Toast.makeText(context, "Upload timed out. Check your internet connection.", Toast.LENGTH_LONG).show()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(context, "Upload timed out. Check your internet connection.", Toast.LENGTH_LONG).show()
+                }
                 e.printStackTrace()
             } catch (e: com.google.firebase.FirebaseException) {
-                dismissProgressDialog()
-                Toast.makeText(context, "Firebase error: ${e.message}\nCheck Firestore rules.", Toast.LENGTH_LONG).show()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(context, "Firebase error: ${e.message}\nCheck Firestore rules.", Toast.LENGTH_LONG).show()
+                }
                 e.printStackTrace()
             } catch (e: Exception) {
-                dismissProgressDialog()
-                Toast.makeText(context, "Error sharing: ${e.message}", Toast.LENGTH_LONG).show()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(context, "Error sharing: ${e.message}", Toast.LENGTH_LONG).show()
+                }
                 e.printStackTrace()
             }
         }

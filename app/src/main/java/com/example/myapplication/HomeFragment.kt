@@ -7,14 +7,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.adapter.CommunityAdapter
 import com.example.myapplication.data.CommunityRecipe
-import com.example.myapplication.data.Recipe
-import com.example.myapplication.viewmodel.RecipeViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -24,7 +21,6 @@ import kotlinx.coroutines.tasks.await
 
 class HomeFragment : Fragment() {
 
-    private val recipeViewModel: RecipeViewModel by viewModels()
     private lateinit var adapter: CommunityAdapter
     private val firestore = FirebaseFirestore.getInstance()
     private val storage = FirebaseStorage.getInstance()
@@ -55,7 +51,6 @@ class HomeFragment : Fragment() {
         )
         recyclerView.adapter = adapter
 
-        // Load community recipes from Firestore
         loadCommunityRecipes()
 
         return view
@@ -100,18 +95,37 @@ class HomeFragment : Fragment() {
     }
 
     private fun saveToMyRecipes(communityRecipe: CommunityRecipe) {
-        val recipe = Recipe(
-            title = communityRecipe.title,
-            description = communityRecipe.description,
-            imageUri = null,
-            ingredients = communityRecipe.ingredients,
-            instructions = communityRecipe.instructions,
-            prepTime = communityRecipe.prepTime,
-            servings = communityRecipe.servings
-        )
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Toast.makeText(context, "Please log in to save recipes", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        recipeViewModel.insert(recipe)
-        Toast.makeText(context, "Recipe saved to your collection!", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            try {
+                val recipeData = hashMapOf(
+                    "title" to communityRecipe.title,
+                    "description" to communityRecipe.description,
+                    "imageUri" to communityRecipe.imageUrl,
+                    "ingredients" to communityRecipe.ingredients,
+                    "instructions" to communityRecipe.instructions,
+                    "prepTime" to communityRecipe.prepTime,
+                    "servings" to communityRecipe.servings,
+                    "timestamp" to System.currentTimeMillis()
+                )
+
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("saved_recipes")
+                    .add(recipeData)
+                    .await()
+
+                Toast.makeText(context, "Recipe saved to your collection!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun showDeleteDialog(recipe: CommunityRecipe) {
@@ -130,19 +144,16 @@ class HomeFragment : Fragment() {
             try {
                 Toast.makeText(context, "Deleting post...", Toast.LENGTH_SHORT).show()
 
-                // Delete from Firestore
                 firestore.collection("community_recipes")
                     .document(recipe.id)
                     .delete()
                     .await()
 
-                // Delete image from Storage if exists
                 if (recipe.imageUrl.isNotEmpty()) {
                     try {
                         val imageRef = storage.getReferenceFromUrl(recipe.imageUrl)
                         imageRef.delete().await()
                     } catch (e: Exception) {
-                        // Image already deleted or doesn't exist
                         e.printStackTrace()
                     }
                 }

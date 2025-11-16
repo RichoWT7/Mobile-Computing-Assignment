@@ -1,6 +1,5 @@
 package com.example.myapplication
 
-import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -12,16 +11,19 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import coil.load
-import com.example.myapplication.data.Recipe
-import com.example.myapplication.viewmodel.RecipeViewModel
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 
 class AddFragment : Fragment() {
-    private val recipeViewModel: RecipeViewModel by viewModels()
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
     private var selectedImageUri: Uri? = null
     private lateinit var imagePreview: ImageView
 
@@ -73,35 +75,87 @@ class AddFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val permanentImagePath = selectedImageUri?.let { uri ->
-                saveImageToInternalStorage(uri)
-            }
-
-            val recipe = Recipe(
+            saveRecipeToFirebase(
                 title = title,
                 description = description,
-                imageUri = permanentImagePath,
-                prepTime = prepTime.ifEmpty { null },
-                servings = servings.ifEmpty { null },
-                ingredients = ingredients.ifEmpty { null },
-                instructions = instructions.ifEmpty { null }
+                prepTime = prepTime,
+                servings = servings,
+                ingredients = ingredients,
+                instructions = instructions,
+                titleInput = titleInput,
+                descriptionInput = descriptionInput,
+                prepTimeInput = prepTimeInput,
+                servingsInput = servingsInput,
+                ingredientsInput = ingredientsInput,
+                instructionsInput = instructionsInput
             )
-
-            recipeViewModel.insert(recipe)
-
-            titleInput.text.clear()
-            descriptionInput.text.clear()
-            prepTimeInput.text.clear()
-            servingsInput.text.clear()
-            ingredientsInput.text.clear()
-            instructionsInput.text.clear()
-            selectedImageUri = null
-            imagePreview.setImageResource(R.drawable.ic_placeholder)
-
-            Toast.makeText(context, "Recipe saved!", Toast.LENGTH_SHORT).show()
         }
 
         return view
+    }
+
+    private fun saveRecipeToFirebase(
+        title: String,
+        description: String,
+        prepTime: String,
+        servings: String,
+        ingredients: String,
+        instructions: String,
+        titleInput: EditText,
+        descriptionInput: EditText,
+        prepTimeInput: EditText,
+        servingsInput: EditText,
+        ingredientsInput: EditText,
+        instructionsInput: EditText
+    ) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            Toast.makeText(context, "Please log in to save recipes", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(context, "Saving recipe...", Toast.LENGTH_SHORT).show()
+
+                val permanentImagePath = selectedImageUri?.let { uri ->
+                    saveImageToInternalStorage(uri)
+                }
+
+                val recipeData = hashMapOf(
+                    "title" to title,
+                    "description" to description,
+                    "imageUri" to (permanentImagePath ?: ""),
+                    "prepTime" to prepTime,
+                    "servings" to servings,
+                    "ingredients" to ingredients,
+                    "instructions" to instructions,
+                    "timestamp" to System.currentTimeMillis()
+                )
+
+                firestore.collection("users")
+                    .document(userId)
+                    .collection("saved_recipes")
+                    .add(recipeData)
+                    .await()
+
+                // Clear form
+                titleInput.text.clear()
+                descriptionInput.text.clear()
+                prepTimeInput.text.clear()
+                servingsInput.text.clear()
+                ingredientsInput.text.clear()
+                instructionsInput.text.clear()
+                selectedImageUri = null
+                imagePreview.setImageResource(R.drawable.ic_placeholder)
+
+                Toast.makeText(context, "Recipe saved!", Toast.LENGTH_SHORT).show()
+
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error saving recipe: ${e.message}", Toast.LENGTH_SHORT).show()
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun saveImageToInternalStorage(uri: Uri): String? {
