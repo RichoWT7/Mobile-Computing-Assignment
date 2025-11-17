@@ -45,6 +45,7 @@ class CalendarFragment : Fragment() {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val displayDateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
     private val weekDates = mutableListOf<String>()
+    private var weekOffset = 0 // Track which week we're viewing (0 = current week)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,17 +59,17 @@ class CalendarFragment : Fragment() {
         val weeklyOverviewRecyclerView = view.findViewById<RecyclerView>(R.id.weekly_overview_recycler_view)
         shoppingListContainer = view.findViewById(R.id.shopping_list_container)
         generateShoppingListButton = view.findViewById(R.id.generate_shopping_list_button)
+        val prevWeekButton = view.findViewById<Button>(R.id.prev_week_button)
+        val nextWeekButton = view.findViewById<Button>(R.id.next_week_button)
+        val weekLabel = view.findViewById<TextView>(R.id.week_label)
 
         mealPlanRecyclerView.layoutManager = LinearLayoutManager(context)
         weeklyOverviewRecyclerView.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
 
-        // Set current date
         currentDate = dateFormat.format(Date())
 
-        // Setup date tabs (show 7 days)
         setupDateTabs()
 
-        // Setup meal plan adapter
         mealPlanAdapter = MealPlanAdapter(
             mealPlans = emptyList(),
             onAddClick = { mealType ->
@@ -80,7 +81,6 @@ class CalendarFragment : Fragment() {
         )
         mealPlanRecyclerView.adapter = mealPlanAdapter
 
-        // Setup weekly overview adapter
         weeklyOverviewAdapter = WeeklyOverviewAdapter(
             weeklyData = emptyList(),
             onDateClick = { date ->
@@ -89,11 +89,9 @@ class CalendarFragment : Fragment() {
         )
         weeklyOverviewRecyclerView.adapter = weeklyOverviewAdapter
 
-        // Load meal plans for current date
         loadMealPlansForDate(currentDate)
         loadWeeklyOverview()
 
-        // Handle date tab selection
         dateTabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 tab?.let {
@@ -107,17 +105,50 @@ class CalendarFragment : Fragment() {
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
-        // Shopping list button
         generateShoppingListButton.setOnClickListener {
             generateShoppingList()
         }
 
+        prevWeekButton.setOnClickListener {
+            weekOffset--
+            setupDateTabs()
+            updateWeekLabel(weekLabel)
+            loadMealPlansForDate(currentDate)
+            loadWeeklyOverview()
+        }
+
+        nextWeekButton.setOnClickListener {
+            weekOffset++
+            setupDateTabs()
+            updateWeekLabel(weekLabel)
+            loadMealPlansForDate(currentDate)
+            loadWeeklyOverview()
+        }
+
+        updateWeekLabel(weekLabel)
+
         return view
+    }
+
+    private fun updateWeekLabel(weekLabel: TextView) {
+        val labelText = when (weekOffset) {
+            0 -> "This Week"
+            -1 -> "Last Week"
+            1 -> "Next Week"
+            else -> if (weekOffset > 0) "$weekOffset Weeks Ahead" else "${-weekOffset} Weeks Ago"
+        }
+        weekLabel.text = labelText
     }
 
     private fun setupDateTabs() {
         val calendar = Calendar.getInstance()
+
+        calendar.add(Calendar.WEEK_OF_YEAR, weekOffset)
+
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+
         weekDates.clear()
+        dateTabLayout.removeAllTabs()
 
         for (i in 0..6) {
             val date = calendar.time
@@ -134,7 +165,7 @@ class CalendarFragment : Fragment() {
             calendar.add(Calendar.DAY_OF_MONTH, 1)
         }
 
-        // Select first tab
+        currentDate = weekDates[0]
         dateTabLayout.getTabAt(0)?.select()
     }
 
@@ -146,7 +177,6 @@ class CalendarFragment : Fragment() {
         }
         loadMealPlansForDate(date)
 
-        // Update weekly overview to highlight selected date
         weeklyOverviewAdapter.updateSelectedDate(date)
     }
 
@@ -162,7 +192,6 @@ class CalendarFragment : Fragment() {
         val userId = auth.currentUser?.uid ?: return
 
         mealPlanViewModel.getAllMealPlans(userId).observe(viewLifecycleOwner) { allMealPlans ->
-            // Filter to current week and group by date
             val weeklyData = weekDates.map { date ->
                 val mealsForDate = allMealPlans.filter { it.date == date }
                 WeeklyOverviewAdapter.DayData(
@@ -181,11 +210,9 @@ class CalendarFragment : Fragment() {
     private fun generateShoppingList() {
         val userId = auth.currentUser?.uid ?: return
 
-        // Remove previous observers to avoid multiple calls
         mealPlanViewModel.getAllMealPlans(userId).removeObservers(viewLifecycleOwner)
 
         mealPlanViewModel.getAllMealPlans(userId).observe(viewLifecycleOwner) { allMealPlans ->
-            // Remove observer after first call
             mealPlanViewModel.getAllMealPlans(userId).removeObservers(viewLifecycleOwner)
 
             if (allMealPlans.isEmpty()) {
@@ -193,7 +220,6 @@ class CalendarFragment : Fragment() {
                 return@observe
             }
 
-            // Filter to current week
             val weekMealPlans = allMealPlans.filter { it.date in weekDates }
 
             if (weekMealPlans.isEmpty()) {
@@ -201,11 +227,9 @@ class CalendarFragment : Fragment() {
                 return@observe
             }
 
-            // Collect all ingredients
             val ingredientsMap = mutableMapOf<String, Int>()
 
             weekMealPlans.forEach { mealPlan ->
-                // Split by comma and also by newline (in case ingredients have line breaks)
                 val ingredients = mealPlan.recipeIngredients
                     ?.split(",", "\n")
                     ?.map { it.trim() }
@@ -224,7 +248,6 @@ class CalendarFragment : Fragment() {
                 return@observe
             }
 
-            // Display shopping list
             showShoppingListDialog(ingredientsMap)
         }
     }
@@ -237,10 +260,8 @@ class CalendarFragment : Fragment() {
         val shareButton = dialogView.findViewById<Button>(R.id.share_shopping_list_button)
         val clearButton = dialogView.findViewById<Button>(R.id.clear_shopping_list_button)
 
-        // Load saved checkbox states
         val sharedPrefs = requireContext().getSharedPreferences("shopping_list", android.content.Context.MODE_PRIVATE)
 
-        // Add checkboxes for each ingredient
         val sortedIngredients = ingredientsMap.entries.sortedBy { it.key }
         val checkBoxes = mutableListOf<CheckBox>()
 
@@ -251,10 +272,8 @@ class CalendarFragment : Fragment() {
                 textSize = 16f
                 setPadding(16, 8, 16, 8)
 
-                // Restore saved state
                 isChecked = sharedPrefs.getBoolean(ingredient, false)
 
-                // Save state when checked/unchecked
                 setOnCheckedChangeListener { _, isChecked ->
                     sharedPrefs.edit().putBoolean(ingredient, isChecked).apply()
                 }
@@ -274,11 +293,9 @@ class CalendarFragment : Fragment() {
         }
 
         clearButton.setOnClickListener {
-            // Clear all checkboxes
             checkBoxes.forEach { checkBox ->
                 checkBox.isChecked = false
             }
-            // Clear saved preferences
             sortedIngredients.forEach { (ingredient, _) ->
                 sharedPrefs.edit().remove(ingredient).apply()
             }
@@ -319,7 +336,6 @@ class CalendarFragment : Fragment() {
 
         lifecycleScope.launch {
             try {
-                // Load saved recipes from Firestore
                 val snapshot = firestore.collection("users")
                     .document(userId)
                     .collection("saved_recipes")
@@ -350,7 +366,6 @@ class CalendarFragment : Fragment() {
                     return@launch
                 }
 
-                // Show dialog with recipe list
                 val dialogView = LayoutInflater.from(requireContext())
                     .inflate(R.layout.dialog_recipe_selection, null)
 
@@ -393,7 +408,6 @@ class CalendarFragment : Fragment() {
         mealPlanViewModel.insert(mealPlan)
         Toast.makeText(context, "Added to $mealType", Toast.LENGTH_SHORT).show()
 
-        // Refresh weekly overview
         loadWeeklyOverview()
     }
 }

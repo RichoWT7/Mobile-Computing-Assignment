@@ -6,6 +6,45 @@
     android:orientation="vertical"
     android:background="@android:color/white">
 
+    <!-- Week navigation header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:background="?attr/colorPrimary">
+
+        <Button
+            android:id="@+id/prev_week_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="◀"
+            android:textSize="20sp"
+            android:backgroundTint="@android:color/transparent"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/week_label"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="This Week"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:gravity="center" />
+
+        <Button
+            android:id="@+id/next_week_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="▶"
+            android:textSize="20sp"
+            android:backgroundTint="@android:color/transparent"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/date_tab_layout"
         android:layout_width="match_parent"
@@ -22,6 +61,7 @@
         android:layout_weight="1"
         android:padding="16dp" />
 
+    <!-- Weekly Overview Section -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
