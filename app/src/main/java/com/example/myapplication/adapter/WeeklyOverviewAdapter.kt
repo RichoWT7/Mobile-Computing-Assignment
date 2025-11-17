@@ -70,4 +70,8 @@ class WeeklyOverviewAdapter(
         selectedDate = currentDate
         notifyDataSetChanged()
     }
+    fun updateSelectedDate(date: String) {
+        selectedDate = date
+        notifyDataSetChanged()
+    }
 }

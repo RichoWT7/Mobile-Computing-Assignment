@@ -145,6 +145,9 @@ class CalendarFragment : Fragment() {
             dateTabLayout.getTabAt(tabIndex)?.select()
         }
         loadMealPlansForDate(date)
+
+        // Update weekly overview to highlight selected date
+        weeklyOverviewAdapter.updateSelectedDate(date)
     }
 
     private fun loadMealPlansForDate(date: String) {
@@ -202,11 +205,16 @@ class CalendarFragment : Fragment() {
             val ingredientsMap = mutableMapOf<String, Int>()
 
             weekMealPlans.forEach { mealPlan ->
-                val ingredients = mealPlan.recipeIngredients?.split(",") ?: emptyList()
+                // Split by comma and also by newline (in case ingredients have line breaks)
+                val ingredients = mealPlan.recipeIngredients
+                    ?.split(",", "\n")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotEmpty() }
+                    ?: emptyList()
+
                 ingredients.forEach { ingredient ->
-                    val trimmed = ingredient.trim()
-                    if (trimmed.isNotEmpty()) {
-                        ingredientsMap[trimmed] = ingredientsMap.getOrDefault(trimmed, 0) + 1
+                    if (ingredient.isNotEmpty()) {
+                        ingredientsMap[ingredient] = ingredientsMap.getOrDefault(ingredient, 0) + 1
                     }
                 }
             }
@@ -227,15 +235,31 @@ class CalendarFragment : Fragment() {
 
         val container = dialogView.findViewById<LinearLayout>(R.id.shopping_list_items_container)
         val shareButton = dialogView.findViewById<Button>(R.id.share_shopping_list_button)
+        val clearButton = dialogView.findViewById<Button>(R.id.clear_shopping_list_button)
+
+        // Load saved checkbox states
+        val sharedPrefs = requireContext().getSharedPreferences("shopping_list", android.content.Context.MODE_PRIVATE)
 
         // Add checkboxes for each ingredient
         val sortedIngredients = ingredientsMap.entries.sortedBy { it.key }
+        val checkBoxes = mutableListOf<CheckBox>()
+
         sortedIngredients.forEach { (ingredient, count) ->
+            val displayText = if (count > 1) "$ingredient (×$count)" else ingredient
             val checkBox = CheckBox(requireContext()).apply {
-                text = if (count > 1) "$ingredient (×$count)" else ingredient
+                text = displayText
                 textSize = 16f
                 setPadding(16, 8, 16, 8)
+
+                // Restore saved state
+                isChecked = sharedPrefs.getBoolean(ingredient, false)
+
+                // Save state when checked/unchecked
+                setOnCheckedChangeListener { _, isChecked ->
+                    sharedPrefs.edit().putBoolean(ingredient, isChecked).apply()
+                }
             }
+            checkBoxes.add(checkBox)
             container.addView(checkBox)
         }
 
@@ -247,6 +271,18 @@ class CalendarFragment : Fragment() {
 
         shareButton.setOnClickListener {
             shareShoppingList(ingredientsMap)
+        }
+
+        clearButton.setOnClickListener {
+            // Clear all checkboxes
+            checkBoxes.forEach { checkBox ->
+                checkBox.isChecked = false
+            }
+            // Clear saved preferences
+            sortedIngredients.forEach { (ingredient, _) ->
+                sharedPrefs.edit().remove(ingredient).apply()
+            }
+            Toast.makeText(context, "Shopping list cleared!", Toast.LENGTH_SHORT).show()
         }
 
         dialog.show()

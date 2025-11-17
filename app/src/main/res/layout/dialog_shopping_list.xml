@@ -17,11 +17,28 @@
             android:padding="16dp" />
     </ScrollView>
 
-    <Button
-        android:id="@+id/share_shopping_list_button"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Share List"
-        android:layout_margin="16dp" />
+        android:orientation="horizontal"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/clear_shopping_list_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Clear All"
+            android:layout_marginEnd="8dp"
+            android:backgroundTint="@android:color/holo_red_dark" />
+
+        <Button
+            android:id="@+id/share_shopping_list_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Share List"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
 
 </LinearLayout>
