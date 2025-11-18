@@ -15,20 +15,19 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.adapter.RecipeExpandableAdapter
 import com.example.myapplication.data.CommunityRecipe
 import com.example.myapplication.data.Recipe
+import com.example.myapplication.util.ImgurUploader
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
+import java.io.File
 
 class SavedFragment : Fragment() {
     private lateinit var adapter: RecipeExpandableAdapter
     private val firestore = FirebaseFirestore.getInstance()
-    private val storage = FirebaseStorage.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private var progressDialog: android.app.AlertDialog? = null
+    private var progressDialog: AlertDialog? = null
     private var progressBar: ProgressBar? = null
     private var progressText: TextView? = null
 
@@ -56,7 +55,6 @@ class SavedFragment : Fragment() {
         )
         recyclerView.adapter = adapter
 
-        // Load user's saved recipes from Firestore
         loadSavedRecipes()
 
         return view
@@ -82,7 +80,7 @@ class SavedFragment : Fragment() {
                 val recipes = snapshot?.documents?.mapNotNull { doc ->
                     try {
                         Recipe(
-                            id = doc.id.hashCode(), // Use Firestore doc ID hash as the ID
+                            id = doc.id.hashCode(),
                             title = doc.getString("title") ?: "",
                             description = doc.getString("description") ?: "",
                             imageUri = doc.getString("imageUri"),
@@ -90,7 +88,7 @@ class SavedFragment : Fragment() {
                             instructions = doc.getString("instructions"),
                             prepTime = doc.getString("prepTime"),
                             servings = doc.getString("servings"),
-                            firestoreId = doc.id // Store the Firestore document ID
+                            firestoreId = doc.id
                         )
                     } catch (e: Exception) {
                         null
@@ -119,7 +117,6 @@ class SavedFragment : Fragment() {
             return
         }
 
-        // Check if recipe has Firestore ID
         val firestoreId = recipe.firestoreId
         if (firestoreId == null) {
             Toast.makeText(context, "Cannot delete: Recipe ID not found", Toast.LENGTH_SHORT).show()
@@ -128,7 +125,6 @@ class SavedFragment : Fragment() {
 
         lifecycleScope.launch {
             try {
-                // Delete using the specific document ID
                 firestore.collection("users")
                     .document(userId)
                     .collection("saved_recipes")
@@ -208,9 +204,26 @@ class SavedFragment : Fragment() {
     private fun uploadRecipeToCommunity(recipe: Recipe) {
         lifecycleScope.launch {
             try {
-                showProgressDialog("Saving recipe to community...")
+                showProgressDialog("Preparing to upload...")
 
-                val imageUrl = ""
+                var imageUrl = ""
+
+                if (!recipe.imageUri.isNullOrEmpty()) {
+                    val imageFile = File(recipe.imageUri)
+                    if (imageFile.exists()) {
+                        showProgressDialog("Uploading image to Imgur...")
+
+                        imageUrl = ImgurUploader.uploadImage(imageFile) ?: ""
+
+                        if (imageUrl.isEmpty()) {
+                            Toast.makeText(context, "Image upload failed, sharing without image", Toast.LENGTH_SHORT).show()
+                        } else {
+                            showProgressDialog("Image uploaded successfully!")
+                        }
+                    }
+                }
+
+                showProgressDialog("Saving recipe to community...")
 
                 val communityRecipe = CommunityRecipe(
                     title = recipe.title,
@@ -225,7 +238,7 @@ class SavedFragment : Fragment() {
                     timestamp = System.currentTimeMillis()
                 )
 
-                kotlinx.coroutines.withTimeout(30000) {
+                kotlinx.coroutines.withTimeout(30000) { // 30 second timeout
                     firestore.collection("community_recipes")
                         .add(communityRecipe)
                         .await()
@@ -240,12 +253,6 @@ class SavedFragment : Fragment() {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     dismissProgressDialog()
                     Toast.makeText(context, "Upload timed out. Check your internet connection.", Toast.LENGTH_LONG).show()
-                }
-                e.printStackTrace()
-            } catch (e: com.google.firebase.FirebaseException) {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    dismissProgressDialog()
-                    Toast.makeText(context, "Firebase error: ${e.message}\nCheck Firestore rules.", Toast.LENGTH_LONG).show()
                 }
                 e.printStackTrace()
             } catch (e: Exception) {

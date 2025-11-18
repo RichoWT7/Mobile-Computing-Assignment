@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SearchView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -25,6 +26,8 @@ class HomeFragment : Fragment() {
     private val firestore = FirebaseFirestore.getInstance()
     private val storage = FirebaseStorage.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private var allRecipes = listOf<CommunityRecipe>()
+    private lateinit var searchView: SearchView
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -33,6 +36,7 @@ class HomeFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
 
+        searchView = view.findViewById(R.id.recipe_search_view)
         val recyclerView = view.findViewById<RecyclerView>(R.id.community_recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(context)
 
@@ -53,6 +57,17 @@ class HomeFragment : Fragment() {
 
         loadCommunityRecipes()
 
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                filterRecipes(newText ?: "")
+                return true
+            }
+        })
+
         return view
     }
 
@@ -65,12 +80,26 @@ class HomeFragment : Fragment() {
                     return@addSnapshotListener
                 }
 
-                val recipes = snapshot?.documents?.mapNotNull { doc ->
+                allRecipes = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(CommunityRecipe::class.java)?.copy(id = doc.id)
                 } ?: emptyList()
 
-                adapter.updateRecipes(recipes)
+                filterRecipes(searchView.query.toString())
             }
+    }
+
+    private fun filterRecipes(query: String) {
+        val filteredRecipes = if (query.isEmpty()) {
+            allRecipes
+        } else {
+            allRecipes.filter { recipe ->
+                recipe.title.contains(query, ignoreCase = true) ||
+                        recipe.description.contains(query, ignoreCase = true) ||
+                        recipe.ingredients.contains(query, ignoreCase = true) ||
+                        recipe.authorEmail.contains(query, ignoreCase = true)
+            }
+        }
+        adapter.updateRecipes(filteredRecipes)
     }
 
     private fun showRecipeDetails(recipe: CommunityRecipe) {
