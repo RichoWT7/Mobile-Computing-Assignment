@@ -63,32 +63,45 @@ class RecipeExpandableAdapter(
 
         // Load images
         if (recipe.imageUri != null) {
-            val imageFile = File(recipe.imageUri)
-            if (imageFile.exists()) {
-                holder.imageView.load(imageFile) {
+            if (recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")) {
+                // It's a URL (from community) - load directly
+                holder.imageView.load(recipe.imageUri) {
                     crossfade(true)
                     placeholder(R.drawable.ic_placeholder)
+                    error(R.drawable.ic_placeholder)
                 }
-                holder.imageLarge.load(imageFile) {
+                holder.imageLarge.load(recipe.imageUri) {
                     crossfade(true)
                     placeholder(R.drawable.ic_placeholder)
+                    error(R.drawable.ic_placeholder)
                 }
             } else {
-                holder.imageView.setImageResource(R.drawable.ic_placeholder)
-                holder.imageLarge.setImageResource(R.drawable.ic_placeholder)
+                // It's a local file path
+                val imageFile = File(recipe.imageUri)
+                if (imageFile.exists()) {
+                    holder.imageView.load(imageFile) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_placeholder)
+                    }
+                    holder.imageLarge.load(imageFile) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_placeholder)
+                    }
+                } else {
+                    holder.imageView.setImageResource(R.drawable.ic_placeholder)
+                    holder.imageLarge.setImageResource(R.drawable.ic_placeholder)
+                }
             }
         } else {
             holder.imageView.setImageResource(R.drawable.ic_placeholder)
             holder.imageLarge.setImageResource(R.drawable.ic_placeholder)
         }
 
-        // Set expanded details
         holder.prepTimeView.text = "Prep Time: ${recipe.prepTime ?: "N/A"}"
         holder.servingsView.text = "Servings: ${recipe.servings ?: "N/A"}"
         holder.ingredientsView.text = recipe.ingredients?.replace(",", "\n• ") ?: "No ingredients listed"
         holder.instructionsView.text = recipe.instructions ?: "No instructions provided"
 
-        // Toggle expand/collapse
         holder.collapsedView.setOnClickListener {
             toggleExpanded(holder)
         }
@@ -97,12 +110,10 @@ class RecipeExpandableAdapter(
             toggleExpanded(holder)
         }
 
-        // Share button - now shows menu
         holder.shareButton.setOnClickListener {
             showShareMenu(it, recipe)
         }
 
-        // Delete button
         holder.deleteButton.setOnClickListener {
             onDeleteClick(recipe)
         }
@@ -159,26 +170,20 @@ class RecipeExpandableAdapter(
             type = "text/plain"
         }
 
-        // Create a BroadcastReceiver to listen for share completion
         val shareReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val componentName = intent?.getParcelableExtra<android.content.ComponentName>(Intent.EXTRA_CHOSEN_COMPONENT)
 
                 if (componentName != null) {
-                    // User selected an app to share with
                     Toast.makeText(context, "Shared successfully!", Toast.LENGTH_SHORT).show()
                     onShareSuccess?.invoke(recipe)
                 } else {
-                    // User cancelled the share
                     Toast.makeText(context, "Share cancelled", Toast.LENGTH_SHORT).show()
                 }
-
-                // Unregister the receiver
                 context?.unregisterReceiver(this)
             }
         }
 
-        // Register the receiver
         val filter = IntentFilter(SHARE_ACTION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(shareReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -186,7 +191,6 @@ class RecipeExpandableAdapter(
             context.registerReceiver(shareReceiver, filter)
         }
 
-        // Create PendingIntent for the broadcast
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             0,
@@ -198,7 +202,6 @@ class RecipeExpandableAdapter(
             }
         )
 
-        // Create chooser with the PendingIntent
         val chooserIntent = Intent.createChooser(shareIntent, "Share Recipe", pendingIntent.intentSender)
         context.startActivity(chooserIntent)
     }
