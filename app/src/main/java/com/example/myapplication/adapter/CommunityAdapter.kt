@@ -26,6 +26,7 @@ class CommunityAdapter(
         val descriptionView: TextView = view.findViewById(R.id.community_recipe_description)
         val prepTimeView: TextView = view.findViewById(R.id.community_recipe_prep_time)
         val servingsView: TextView = view.findViewById(R.id.community_recipe_servings)
+        val dietaryTagsView: TextView = view.findViewById(R.id.community_recipe_dietary_tags)
         val viewDetailsButton: Button = view.findViewById(R.id.view_details_button)
         val saveButton: Button = view.findViewById(R.id.save_to_my_recipes_button)
         val deleteButton: Button = view.findViewById(R.id.delete_post_button)
@@ -45,6 +46,14 @@ class CommunityAdapter(
         holder.descriptionView.text = recipe.description
         holder.prepTimeView.text = "⏱ ${recipe.prepTime.ifEmpty { "N/A" }}"
         holder.servingsView.text = "🍽 ${recipe.servings.ifEmpty { "N/A" }}"
+
+        // Show dietary tags if available
+        if (recipe.dietaryTags.isNotEmpty()) {
+            holder.dietaryTagsView.visibility = View.VISIBLE
+            holder.dietaryTagsView.text = "🏷 ${recipe.dietaryTags}"
+        } else {
+            holder.dietaryTagsView.visibility = View.GONE
+        }
 
         if (recipe.imageUrl.isNotEmpty()) {
             holder.imageView.load(recipe.imageUrl) {

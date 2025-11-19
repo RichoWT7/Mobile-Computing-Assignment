@@ -88,7 +88,8 @@ class SavedFragment : Fragment() {
                             instructions = doc.getString("instructions"),
                             prepTime = doc.getString("prepTime"),
                             servings = doc.getString("servings"),
-                            firestoreId = doc.id
+                            firestoreId = doc.id,
+                            dietaryTags = doc.getString("dietaryTags")
                         )
                     } catch (e: Exception) {
                         null

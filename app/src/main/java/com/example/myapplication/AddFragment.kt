@@ -6,13 +6,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import coil.load
+import com.google.android.material.chip.Chip
+import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -33,6 +34,10 @@ class AddFragment : Fragment() {
         uri?.let {
             selectedImageUri = it
             imagePreview.load(it)
+
+            // Show change button, hide FAB
+            view?.findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.add_image_fab)?.visibility = View.GONE
+            view?.findViewById<Button>(R.id.change_image_btn)?.visibility = View.VISIBLE
         }
     }
 
@@ -44,16 +49,29 @@ class AddFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_add, container, false)
 
         imagePreview = view.findViewById(R.id.image_preview)
-        val titleInput = view.findViewById<EditText>(R.id.recipe_title_input)
-        val descriptionInput = view.findViewById<EditText>(R.id.recipe_description_input)
-        val prepTimeInput = view.findViewById<EditText>(R.id.recipe_prep_time_input)
-        val servingsInput = view.findViewById<EditText>(R.id.recipe_servings_input)
-        val ingredientsInput = view.findViewById<EditText>(R.id.recipe_ingredients_input)
-        val instructionsInput = view.findViewById<EditText>(R.id.recipe_instructions_input)
-        val selectImageBtn = view.findViewById<Button>(R.id.select_image_btn)
+        val titleInput = view.findViewById<TextInputEditText>(R.id.recipe_title_input)
+        val descriptionInput = view.findViewById<TextInputEditText>(R.id.recipe_description_input)
+        val prepTimeInput = view.findViewById<TextInputEditText>(R.id.recipe_prep_time_input)
+        val servingsInput = view.findViewById<TextInputEditText>(R.id.recipe_servings_input)
+        val ingredientsInput = view.findViewById<TextInputEditText>(R.id.recipe_ingredients_input)
+        val instructionsInput = view.findViewById<TextInputEditText>(R.id.recipe_instructions_input)
+        val addImageFab = view.findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.add_image_fab)
+        val changeImageBtn = view.findViewById<Button>(R.id.change_image_btn)
         val saveBtn = view.findViewById<Button>(R.id.save_recipe_btn)
 
-        selectImageBtn.setOnClickListener {
+        val chipVegetarian = view.findViewById<Chip>(R.id.chip_vegetarian)
+        val chipVegan = view.findViewById<Chip>(R.id.chip_vegan)
+        val chipGlutenFree = view.findViewById<Chip>(R.id.chip_gluten_free)
+        val chipKeto = view.findViewById<Chip>(R.id.chip_keto)
+        val chipPaleo = view.findViewById<Chip>(R.id.chip_paleo)
+        val chipDairyFree = view.findViewById<Chip>(R.id.chip_dairy_free)
+
+        addImageFab.setOnClickListener {
+            imagePickerLauncher.launch("image/*")
+        }
+
+        // Change image button click
+        changeImageBtn.setOnClickListener {
             imagePickerLauncher.launch("image/*")
         }
 
@@ -75,6 +93,14 @@ class AddFragment : Fragment() {
                 return@setOnClickListener
             }
 
+            val dietaryTags = mutableListOf<String>()
+            if (chipVegetarian.isChecked) dietaryTags.add("Vegetarian")
+            if (chipVegan.isChecked) dietaryTags.add("Vegan")
+            if (chipGlutenFree.isChecked) dietaryTags.add("Gluten-Free")
+            if (chipKeto.isChecked) dietaryTags.add("Keto")
+            if (chipPaleo.isChecked) dietaryTags.add("Paleo")
+            if (chipDairyFree.isChecked) dietaryTags.add("Dairy-Free")
+
             saveRecipeToFirebase(
                 title = title,
                 description = description,
@@ -82,12 +108,19 @@ class AddFragment : Fragment() {
                 servings = servings,
                 ingredients = ingredients,
                 instructions = instructions,
+                dietaryTags = dietaryTags.joinToString(", "),
                 titleInput = titleInput,
                 descriptionInput = descriptionInput,
                 prepTimeInput = prepTimeInput,
                 servingsInput = servingsInput,
                 ingredientsInput = ingredientsInput,
-                instructionsInput = instructionsInput
+                instructionsInput = instructionsInput,
+                chipVegetarian = chipVegetarian,
+                chipVegan = chipVegan,
+                chipGlutenFree = chipGlutenFree,
+                chipKeto = chipKeto,
+                chipPaleo = chipPaleo,
+                chipDairyFree = chipDairyFree
             )
         }
 
@@ -101,12 +134,19 @@ class AddFragment : Fragment() {
         servings: String,
         ingredients: String,
         instructions: String,
-        titleInput: EditText,
-        descriptionInput: EditText,
-        prepTimeInput: EditText,
-        servingsInput: EditText,
-        ingredientsInput: EditText,
-        instructionsInput: EditText
+        dietaryTags: String,
+        titleInput: TextInputEditText,
+        descriptionInput: TextInputEditText,
+        prepTimeInput: TextInputEditText,
+        servingsInput: TextInputEditText,
+        ingredientsInput: TextInputEditText,
+        instructionsInput: TextInputEditText,
+        chipVegetarian: Chip,
+        chipVegan: Chip,
+        chipGlutenFree: Chip,
+        chipKeto: Chip,
+        chipPaleo: Chip,
+        chipDairyFree: Chip
     ) {
         val userId = auth.currentUser?.uid
         if (userId == null) {
@@ -130,6 +170,7 @@ class AddFragment : Fragment() {
                     "servings" to servings,
                     "ingredients" to ingredients,
                     "instructions" to instructions,
+                    "dietaryTags" to dietaryTags,
                     "timestamp" to System.currentTimeMillis()
                 )
 
@@ -139,15 +180,24 @@ class AddFragment : Fragment() {
                     .add(recipeData)
                     .await()
 
-                // Clear form
-                titleInput.text.clear()
-                descriptionInput.text.clear()
-                prepTimeInput.text.clear()
-                servingsInput.text.clear()
-                ingredientsInput.text.clear()
-                instructionsInput.text.clear()
+                titleInput.text?.clear()
+                descriptionInput.text?.clear()
+                prepTimeInput.text?.clear()
+                servingsInput.text?.clear()
+                ingredientsInput.text?.clear()
+                instructionsInput.text?.clear()
                 selectedImageUri = null
                 imagePreview.setImageResource(R.drawable.ic_placeholder)
+
+                view?.findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.add_image_fab)?.visibility = View.VISIBLE
+                view?.findViewById<Button>(R.id.change_image_btn)?.visibility = View.GONE
+
+                chipVegetarian.isChecked = false
+                chipVegan.isChecked = false
+                chipGlutenFree.isChecked = false
+                chipKeto.isChecked = false
+                chipPaleo.isChecked = false
+                chipDairyFree.isChecked = false
 
                 Toast.makeText(context, "Recipe saved!", Toast.LENGTH_SHORT).show()
 

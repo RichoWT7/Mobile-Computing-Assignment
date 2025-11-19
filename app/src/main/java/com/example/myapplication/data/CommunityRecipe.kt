@@ -11,6 +11,6 @@ data class CommunityRecipe(
     val servings: String = "",
     val authorEmail: String = "",
     val authorName: String = "",
-    val timestamp: Long = System.currentTimeMillis(),
-    val likes: Int = 0
+    val timestamp: Long = 0,
+    val dietaryTags: String = ""
 )

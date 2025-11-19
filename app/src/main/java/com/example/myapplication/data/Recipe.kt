@@ -1,19 +1,14 @@
 package com.example.myapplication.data
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
-@Entity(tableName = "recipes")
 data class Recipe(
-    @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val title: String,
     val description: String,
-    val imageUri: String? = null,
-    val ingredients: String? = null,
-    val instructions: String? = null,
-    val prepTime: String? = null,
-    val servings: String? = null,
-    val createdAt: Long = System.currentTimeMillis(),
-    val firestoreId: String? = null
+    val imageUri: String?,
+    val ingredients: String?,
+    val instructions: String?,
+    val prepTime: String?,
+    val servings: String?,
+    val firestoreId: String? = null,
+    val dietaryTags: String? = null
 )

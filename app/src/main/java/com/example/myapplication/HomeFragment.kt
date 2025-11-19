@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -28,6 +29,8 @@ class HomeFragment : Fragment() {
     private val auth = FirebaseAuth.getInstance()
     private var allRecipes = listOf<CommunityRecipe>()
     private lateinit var searchView: SearchView
+    private lateinit var preferencesManager: PreferencesManager
+    private var userDietaryPreference: String = "None"
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -36,6 +39,7 @@ class HomeFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
 
+        preferencesManager = PreferencesManager(requireContext())
         searchView = view.findViewById(R.id.recipe_search_view)
         val recyclerView = view.findViewById<RecyclerView>(R.id.community_recycler_view)
         recyclerView.layoutManager = LinearLayoutManager(context)
@@ -71,6 +75,15 @@ class HomeFragment : Fragment() {
         return view
     }
 
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            userDietaryPreference = preferencesManager.dietaryPreference.first()
+            println("DEBUG: User dietary preference loaded: $userDietaryPreference")
+            filterRecipes(searchView.query.toString())
+        }
+    }
+
     private fun loadCommunityRecipes() {
         firestore.collection("community_recipes")
             .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -84,12 +97,21 @@ class HomeFragment : Fragment() {
                     doc.toObject(CommunityRecipe::class.java)?.copy(id = doc.id)
                 } ?: emptyList()
 
-                filterRecipes(searchView.query.toString())
+                println("DEBUG: Loaded ${allRecipes.size} recipes from Firestore")
+                allRecipes.forEach { recipe ->
+                    println("DEBUG: Recipe '${recipe.title}' has tags: '${recipe.dietaryTags}'")
+                }
+
+                lifecycleScope.launch {
+                    userDietaryPreference = preferencesManager.dietaryPreference.first()
+                    println("DEBUG: Filtering with preference: $userDietaryPreference")
+                    filterRecipes(searchView.query.toString())
+                }
             }
     }
 
     private fun filterRecipes(query: String) {
-        val filteredRecipes = if (query.isEmpty()) {
+        var filteredRecipes = if (query.isEmpty()) {
             allRecipes
         } else {
             allRecipes.filter { recipe ->
@@ -99,6 +121,20 @@ class HomeFragment : Fragment() {
                         recipe.authorEmail.contains(query, ignoreCase = true)
             }
         }
+
+        println("DEBUG: Before dietary filter: ${filteredRecipes.size} recipes")
+        println("DEBUG: User preference: '$userDietaryPreference'")
+
+        if (userDietaryPreference != "None" && userDietaryPreference.isNotEmpty()) {
+            filteredRecipes = filteredRecipes.filter { recipe ->
+                val recipeTags = recipe.dietaryTags ?: ""
+                val matches = recipeTags.contains(userDietaryPreference, ignoreCase = true)
+                println("DEBUG: Recipe '${recipe.title}' tags='$recipeTags' matches=$matches")
+                matches
+            }
+            println("DEBUG: After dietary filter: ${filteredRecipes.size} recipes")
+        }
+
         adapter.updateRecipes(filteredRecipes)
     }
 
