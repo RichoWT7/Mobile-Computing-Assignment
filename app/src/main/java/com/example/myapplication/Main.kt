@@ -1,97 +1,96 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
-import android.widget.ImageView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import coil.load
-import coil.transform.CircleCropTransformation
-import com.google.android.material.bottomnavigation.BottomNavigationView
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import java.io.File
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
-class Main : AppCompatActivity() {
-
-    private lateinit var preferencesManager: PreferencesManager
-    private lateinit var profileImageToolbar: ImageView
+class Main: ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        preferencesManager = PreferencesManager(this)
-        profileImageToolbar = findViewById(R.id.profile_image_toolbar)
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-
-        // Load initial screen
-        loadFragment(HomeFragment())
-
-        // Toolbar profile picture click — open Profile screen (with backstack)
-        profileImageToolbar.setOnClickListener {
-            loadFragmentWithBackStack(ProfileFragment())
-            bottomNav.selectedItemId = -1 // remove highlight from bottom nav
-        }
-
-        // Bottom Navigation handling
-        bottomNav.setOnItemSelectedListener { item ->
-            val fragment = when (item.itemId) {
-                R.id.nav_home -> HomeFragment()
-                R.id.nav_saved -> SavedFragment()
-                R.id.nav_add -> AddFragment()
-                R.id.nav_calendar -> CalendarFragment()
-                else -> HomeFragment()
-            }
-            loadFragment(fragment)
-            true
-        }
-
-        // Load toolbar profile picture
-        loadProfilePicture()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        loadProfilePicture()
-    }
-
-    private fun loadProfilePicture() {
-        lifecycleScope.launch {
-            val savedProfilePic = preferencesManager.profilePicture.first()
-
-            val file = File(savedProfilePic)
-            if (savedProfilePic.isNotEmpty() && file.exists()) {
-                profileImageToolbar.load(file) {
-                    crossfade(true)
-                    transformations(CircleCropTransformation())
-                    placeholder(R.drawable.ic_person)
-                    error(R.drawable.ic_person)
-                }
-            } else {
-                profileImageToolbar.load(R.drawable.ic_person) {
-                    transformations(CircleCropTransformation())
-                }
+        setContent {
+            MyApplicationTheme {
+                MainScreen(
+                    onLogout = {
+                        startActivity(Intent(this, LoginActivity::class.java))
+                        finish()
+                    }
+                )
             }
         }
     }
+}
 
-    fun refreshProfilePicture() {
-        loadProfilePicture()
+@Composable
+fun MainScreen(onLogout: () -> Unit) {
+    val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = "home"
+    ) {
+        composable("home") {
+            HomeScreen(
+                onNavigateToProfile = {
+                    navController.navigate("profile")
+                }
+            )
+        }
+
+        composable("profile") {
+            ProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onLogout = onLogout
+            )
+        }
     }
+}
 
-    // Normal navigation (no backstack)
-    private fun loadFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
-    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(onNavigateToProfile: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Home") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Welcome to the App!",
+                style = MaterialTheme.typography.headlineMedium
+            )
 
-    // Navigation WITH backstack (for Profile from toolbar)
-    private fun loadFragmentWithBackStack(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .addToBackStack(null)
-            .commit()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onNavigateToProfile,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Go to Profile")
+            }
+        }
     }
 }
