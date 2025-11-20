@@ -219,7 +219,6 @@ fun SavedScreen(
     var showDeleteDialog by remember { mutableStateOf<Recipe?>(null) }
     var showShareDialog by remember { mutableStateOf<Recipe?>(null) }
 
-    // Show toast messages
     LaunchedEffect(uiState.message) {
         uiState.message?.let { message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
@@ -227,7 +226,6 @@ fun SavedScreen(
         }
     }
 
-    // Delete confirmation dialog
     showDeleteDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -249,7 +247,6 @@ fun SavedScreen(
         )
     }
 
-    // Share confirmation dialog
     showShareDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { if (!uiState.isUploading) showShareDialog = null },
@@ -282,6 +279,12 @@ fun SavedScreen(
                 }
             }
         )
+    }
+
+    LaunchedEffect(uiState.isUploading) {
+        if (!uiState.isUploading && showShareDialog != null && uiState.message?.contains("shared") == true) {
+            showShareDialog = null
+        }
     }
 
     Scaffold(
@@ -343,7 +346,6 @@ fun SavedRecipeCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Collapsed view
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -393,7 +395,6 @@ fun SavedRecipeCard(
                 }
             }
 
-            // Expanded view
             if (isExpanded) {
                 Column(
                     modifier = Modifier
@@ -403,7 +404,6 @@ fun SavedRecipeCard(
                     Divider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Large image
                     if (!recipe.imageUri.isNullOrEmpty()) {
                         val imageFile = File(recipe.imageUri)
                         if (imageFile.exists()) {
@@ -423,7 +423,6 @@ fun SavedRecipeCard(
                         }
                     }
 
-                    // Details
                     if (recipe.prepTime != null) {
                         Text("Prep Time: ${recipe.prepTime}", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -445,7 +444,6 @@ fun SavedRecipeCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Action buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
