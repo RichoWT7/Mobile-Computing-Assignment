@@ -152,7 +152,6 @@ class AddRecipeViewModel(application: Application) : AndroidViewModel(applicatio
 
                 println("DEBUG: Sending to Firebase...")
 
-                // Add to Firebase (don't wait for response since it's timing out but working)
                 firestore.collection("users")
                     .document(userId)
                     .collection("saved_recipes")
@@ -164,12 +163,10 @@ class AddRecipeViewModel(application: Application) : AndroidViewModel(applicatio
                         println("DEBUG: Firebase error but might still save: ${e.message}")
                     }
 
-                // Give Firebase a moment to start the save
                 kotlinx.coroutines.delay(500)
 
                 println("DEBUG: Recipe sent to Firebase (saving in background)")
 
-                // Reset form immediately
                 _uiState.value = AddRecipeUiState(
                     isSaving = false,
                     message = "Recipe saved successfully!"
@@ -324,7 +321,6 @@ fun AddScreen(
                 }
             }
 
-            // Title
             OutlinedTextField(
                 value = uiState.title,
                 onValueChange = { viewModel.updateTitle(it) },
@@ -333,7 +329,6 @@ fun AddScreen(
                 singleLine = true
             )
 
-            // Description
             OutlinedTextField(
                 value = uiState.description,
                 onValueChange = { viewModel.updateDescription(it) },
@@ -343,7 +338,6 @@ fun AddScreen(
                 maxLines = 5
             )
 
-            // Prep Time and Servings Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -367,7 +361,6 @@ fun AddScreen(
                 )
             }
 
-            // Ingredients
             OutlinedTextField(
                 value = uiState.ingredients,
                 onValueChange = { viewModel.updateIngredients(it) },
@@ -378,7 +371,6 @@ fun AddScreen(
                 maxLines = 8
             )
 
-            // Instructions
             OutlinedTextField(
                 value = uiState.instructions,
                 onValueChange = { viewModel.updateInstructions(it) },
@@ -388,7 +380,6 @@ fun AddScreen(
                 maxLines = 10
             )
 
-            // Dietary Tags
             Text(
                 "Dietary Tags",
                 style = MaterialTheme.typography.titleMedium,
@@ -428,7 +419,6 @@ fun AddScreen(
                 }
             }
 
-            // Save Button
             Button(
                 onClick = { viewModel.saveRecipe(context) },
                 modifier = Modifier
