@@ -105,7 +105,7 @@ fun MainScreen(onLogout: () -> Unit) {
             }
 
             composable(Screen.Calendar.route) {
-                CalendarScreenPlaceholder()
+                CalendarScreen()
             }
 
             composable(Screen.Profile.route) {
@@ -114,78 +114,6 @@ fun MainScreen(onLogout: () -> Unit) {
                         navController.popBackStack()
                     },
                     onLogout = onLogout
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddScreenPlaceholder() {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Add Recipe") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = androidx.compose.ui.Alignment.Center
-        ) {
-            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                Text(
-                    "Add Recipe Screen",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "This screen will be converted to Compose next!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CalendarScreenPlaceholder() {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Meal Calendar") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = androidx.compose.ui.Alignment.Center
-        ) {
-            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                Text(
-                    "Meal Calendar Screen",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "This screen will be converted to Compose next!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
