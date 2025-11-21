@@ -1,97 +1,193 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
-import android.widget.ImageView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import coil.load
-import coil.transform.CircleCropTransformation
-import com.google.android.material.bottomnavigation.BottomNavigationView
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import java.io.File
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.example.myapplication.ui.theme.MyApplicationTheme
 
-class Main : AppCompatActivity() {
-
-    private lateinit var preferencesManager: PreferencesManager
-    private lateinit var profileImageToolbar: ImageView
+class Main : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        preferencesManager = PreferencesManager(this)
-        profileImageToolbar = findViewById(R.id.profile_image_toolbar)
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-
-        // Load initial screen
-        loadFragment(HomeFragment())
-
-        // Toolbar profile picture click — open Profile screen (with backstack)
-        profileImageToolbar.setOnClickListener {
-            loadFragmentWithBackStack(ProfileFragment())
-            bottomNav.selectedItemId = -1 // remove highlight from bottom nav
-        }
-
-        // Bottom Navigation handling
-        bottomNav.setOnItemSelectedListener { item ->
-            val fragment = when (item.itemId) {
-                R.id.nav_home -> HomeFragment()
-                R.id.nav_saved -> SavedFragment()
-                R.id.nav_add -> AddFragment()
-                R.id.nav_calendar -> CalendarFragment()
-                else -> HomeFragment()
-            }
-            loadFragment(fragment)
-            true
-        }
-
-        // Load toolbar profile picture
-        loadProfilePicture()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        loadProfilePicture()
-    }
-
-    private fun loadProfilePicture() {
-        lifecycleScope.launch {
-            val savedProfilePic = preferencesManager.profilePicture.first()
-
-            val file = File(savedProfilePic)
-            if (savedProfilePic.isNotEmpty() && file.exists()) {
-                profileImageToolbar.load(file) {
-                    crossfade(true)
-                    transformations(CircleCropTransformation())
-                    placeholder(R.drawable.ic_person)
-                    error(R.drawable.ic_person)
-                }
-            } else {
-                profileImageToolbar.load(R.drawable.ic_person) {
-                    transformations(CircleCropTransformation())
-                }
+        setContent {
+            MyApplicationTheme {
+                MainScreen(
+                    onLogout = {
+                        startActivity(Intent(this, LoginActivity::class.java))
+                        finish()
+                    }
+                )
             }
         }
     }
+}
 
-    fun refreshProfilePicture() {
-        loadProfilePicture()
+sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
+    object Home : Screen("home", "Home", Icons.Default.Home)
+    object Saved : Screen("saved", "Saved", Icons.Default.Favorite)
+    object Add : Screen("add", "Add", Icons.Default.Add)
+    object Calendar : Screen("calendar", "Calendar", Icons.Default.DateRange)
+    object Profile : Screen("profile", "Profile", Icons.Default.Person)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen(onLogout: () -> Unit) {
+    val navController = rememberNavController()
+    val screens = listOf(
+        Screen.Home,
+        Screen.Saved,
+        Screen.Add,
+        Screen.Calendar,
+        Screen.Profile
+    )
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                screens.forEach { screen ->
+                    NavigationBarItem(
+                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                        label = { Text(screen.title) },
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.Profile.route)
+                    }
+                )
+            }
+
+            composable(Screen.Saved.route) {
+                SavedScreen()
+            }
+
+            composable(Screen.Add.route) {
+                AddScreen()
+            }
+
+            composable(Screen.Calendar.route) {
+                CalendarScreenPlaceholder()
+            }
+
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onLogout = onLogout
+                )
+            }
+        }
     }
+}
 
-    // Normal navigation (no backstack)
-    private fun loadFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddScreenPlaceholder() {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Add Recipe") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Text(
+                    "Add Recipe Screen",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "This screen will be converted to Compose next!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
+}
 
-    // Navigation WITH backstack (for Profile from toolbar)
-    private fun loadFragmentWithBackStack(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .addToBackStack(null)
-            .commit()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CalendarScreenPlaceholder() {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Meal Calendar") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Text(
+                    "Meal Calendar Screen",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "This screen will be converted to Compose next!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
