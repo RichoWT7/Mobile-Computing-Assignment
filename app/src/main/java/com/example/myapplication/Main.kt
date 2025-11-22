@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -89,11 +88,7 @@ fun MainScreen(onLogout: () -> Unit) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
-                HomeScreen(
-                    onNavigateToProfile = {
-                        navController.navigate(Screen.Profile.route)
-                    }
-                )
+                HomeScreen()
             }
 
             composable(Screen.Saved.route) {
@@ -110,9 +105,7 @@ fun MainScreen(onLogout: () -> Unit) {
 
             composable(Screen.Profile.route) {
                 ProfileScreen(
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
+                    onNavigateBack = { navController.popBackStack() },
                     onLogout = onLogout
                 )
             }

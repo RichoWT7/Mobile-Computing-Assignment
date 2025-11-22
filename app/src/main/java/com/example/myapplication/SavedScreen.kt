@@ -352,13 +352,14 @@ fun SavedRecipeCard(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Image
+
                 if (!recipe.imageUri.isNullOrEmpty()) {
-                    val imageFile = File(recipe.imageUri)
-                    if (imageFile.exists()) {
+                    val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
+
+                    if (isUrl) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(imageFile)
+                                .data(recipe.imageUri)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = recipe.title,
@@ -367,6 +368,21 @@ fun SavedRecipeCard(
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
+                    } else {
+                        val imageFile = File(recipe.imageUri)
+                        if (imageFile.exists()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(imageFile)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = recipe.title,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
                 }
 
@@ -405,11 +421,12 @@ fun SavedRecipeCard(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (!recipe.imageUri.isNullOrEmpty()) {
-                        val imageFile = File(recipe.imageUri)
-                        if (imageFile.exists()) {
+                        val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
+
+                        if (isUrl) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
-                                    .data(imageFile)
+                                    .data(recipe.imageUri)
                                     .crossfade(true)
                                     .build(),
                                 contentDescription = recipe.title,
@@ -420,6 +437,23 @@ fun SavedRecipeCard(
                                 contentScale = ContentScale.Crop
                             )
                             Spacer(modifier = Modifier.height(12.dp))
+                        } else {
+                            val imageFile = File(recipe.imageUri)
+                            if (imageFile.exists()) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(imageFile)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = recipe.title,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                         }
                     }
 
