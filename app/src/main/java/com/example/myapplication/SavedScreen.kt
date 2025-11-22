@@ -6,8 +6,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +41,8 @@ import java.io.File
 
 data class SavedUiState(
     val recipes: List<Recipe> = emptyList(),
+    val filteredRecipes: List<Recipe> = emptyList(),
+    val searchQuery: String = "",
     val expandedRecipeId: Int? = null,
     val isUploading: Boolean = false,
     val uploadProgress: String = "",
@@ -92,8 +96,32 @@ class SavedViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 } ?: emptyList()
 
-                _uiState.value = _uiState.value.copy(recipes = recipes)
+                _uiState.value = _uiState.value.copy(
+                    recipes = recipes,
+                    filteredRecipes = recipes
+                )
+                applySearchFilter()
             }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query)
+        applySearchFilter()
+    }
+
+    private fun applySearchFilter() {
+        val query = _uiState.value.searchQuery.lowercase()
+        val filtered = if (query.isEmpty()) {
+            _uiState.value.recipes
+        } else {
+            _uiState.value.recipes.filter { recipe ->
+                recipe.title.lowercase().contains(query) ||
+                        recipe.description.lowercase().contains(query) ||
+                        recipe.ingredients?.lowercase()?.contains(query) == true ||
+                        recipe.dietaryTags?.lowercase()?.contains(query) == true
+            }
+        }
+        _uiState.value = _uiState.value.copy(filteredRecipes = filtered)
     }
 
     fun toggleExpanded(recipeId: Int) {
@@ -219,6 +247,7 @@ fun SavedScreen(
     var showDeleteDialog by remember { mutableStateOf<Recipe?>(null) }
     var showShareDialog by remember { mutableStateOf<Recipe?>(null) }
 
+    // Show toast messages
     LaunchedEffect(uiState.message) {
         uiState.message?.let { message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
@@ -226,6 +255,7 @@ fun SavedScreen(
         }
     }
 
+    // Delete confirmation dialog
     showDeleteDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -247,6 +277,7 @@ fun SavedScreen(
         )
     }
 
+    // Share confirmation dialog
     showShareDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { if (!uiState.isUploading) showShareDialog = null },
@@ -281,6 +312,7 @@ fun SavedScreen(
         )
     }
 
+    // Auto-close dialog after successful upload
     LaunchedEffect(uiState.isUploading) {
         if (!uiState.isUploading && showShareDialog != null && uiState.message?.contains("shared") == true) {
             showShareDialog = null
@@ -298,35 +330,70 @@ fun SavedScreen(
             )
         }
     ) { paddingValues ->
-        if (uiState.recipes.isEmpty()) {
-            Box(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Search Bar
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No saved recipes yet.\nAdd some recipes to see them here!",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(uiState.recipes, key = { it.id }) { recipe ->
-                    SavedRecipeCard(
-                        recipe = recipe,
-                        isExpanded = uiState.expandedRecipeId == recipe.id,
-                        onExpandClick = { viewModel.toggleExpanded(recipe.id) },
-                        onDeleteClick = { showDeleteDialog = recipe },
-                        onShareClick = { showShareDialog = recipe }
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                placeholder = { Text("Search your recipes...") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search"
                     )
+                },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear"
+                            )
+                        }
+                    }
+                },
+                singleLine = true
+            )
+
+            // Recipe List
+            if (uiState.filteredRecipes.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (uiState.searchQuery.isEmpty()) {
+                            "No saved recipes yet.\nAdd some recipes to see them here!"
+                        } else {
+                            "No recipes found matching \"${uiState.searchQuery}\""
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(uiState.filteredRecipes, key = { it.id }) { recipe ->
+                        SavedRecipeCard(
+                            recipe = recipe,
+                            isExpanded = uiState.expandedRecipeId == recipe.id,
+                            onExpandClick = { viewModel.toggleExpanded(recipe.id) },
+                            onDeleteClick = { showDeleteDialog = recipe },
+                            onShareClick = { showShareDialog = recipe }
+                        )
+                    }
                 }
             }
         }
@@ -346,17 +413,20 @@ fun SavedRecipeCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            // Collapsed view
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
+                // Image
                 if (!recipe.imageUri.isNullOrEmpty()) {
+                    // Check if it's a URL (starts with http) or a local file path
                     val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
 
                     if (isUrl) {
+                        // Load from URL (community recipes)
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(recipe.imageUri)
@@ -369,6 +439,7 @@ fun SavedRecipeCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
+                        // Load from local file (user-created recipes)
                         val imageFile = File(recipe.imageUri)
                         if (imageFile.exists()) {
                             AsyncImage(
@@ -411,6 +482,7 @@ fun SavedRecipeCard(
                 }
             }
 
+            // Expanded view
             if (isExpanded) {
                 Column(
                     modifier = Modifier
@@ -420,6 +492,7 @@ fun SavedRecipeCard(
                     Divider()
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Large image
                     if (!recipe.imageUri.isNullOrEmpty()) {
                         val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
 
@@ -457,6 +530,7 @@ fun SavedRecipeCard(
                         }
                     }
 
+                    // Details
                     if (recipe.prepTime != null) {
                         Text("Prep Time: ${recipe.prepTime}", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -478,6 +552,7 @@ fun SavedRecipeCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // Action buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
