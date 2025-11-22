@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation("com.google.android.material:material:1.9.0")
+    implementation("androidx.compose.runtime:runtime-livedata:1.7.5")
 
     // Jetpack Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
