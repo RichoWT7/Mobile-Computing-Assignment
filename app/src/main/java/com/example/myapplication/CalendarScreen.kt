@@ -45,7 +45,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Data classes
 data class DayData(
     val date: String,
     val displayDate: String,
@@ -75,7 +74,6 @@ data class ShoppingItem(
     val isChecked: Boolean = false
 )
 
-// ViewModel
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -246,7 +244,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             try {
                 val mealPlan = MealPlan(
-                    id = 0, // Auto-generate
+                    id = 0,
                     date = date,
                     mealType = mealType,
                     recipeTitle = recipe.title,
@@ -703,13 +701,14 @@ fun MealPlanCard(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Image
                     if (!mealPlan.recipeImageUri.isNullOrEmpty()) {
-                        val imageFile = File(mealPlan.recipeImageUri)
-                        if (imageFile.exists()) {
+                        val isUrl = mealPlan.recipeImageUri.startsWith("http://") ||
+                                mealPlan.recipeImageUri.startsWith("https://")
+
+                        if (isUrl) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
-                                    .data(imageFile)
+                                    .data(mealPlan.recipeImageUri)
                                     .crossfade(true)
                                     .build(),
                                 contentDescription = mealPlan.recipeTitle,
@@ -718,6 +717,21 @@ fun MealPlanCard(
                                     .clip(RoundedCornerShape(8.dp)),
                                 contentScale = ContentScale.Crop
                             )
+                        } else {
+                            val imageFile = File(mealPlan.recipeImageUri)
+                            if (imageFile.exists()) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(imageFile)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = mealPlan.recipeTitle,
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
                         }
                     }
 
@@ -752,11 +766,13 @@ fun MealPlanCard(
 
                     Column(modifier = Modifier.padding(16.dp)) {
                         if (!mealPlan.recipeImageUri.isNullOrEmpty()) {
-                            val imageFile = File(mealPlan.recipeImageUri)
-                            if (imageFile.exists()) {
+                            val isUrl = mealPlan.recipeImageUri.startsWith("http://") ||
+                                    mealPlan.recipeImageUri.startsWith("https://")
+
+                            if (isUrl) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(LocalContext.current)
-                                        .data(imageFile)
+                                        .data(mealPlan.recipeImageUri)
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = mealPlan.recipeTitle,
@@ -767,6 +783,23 @@ fun MealPlanCard(
                                     contentScale = ContentScale.Crop
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
+                            } else {
+                                val imageFile = File(mealPlan.recipeImageUri)
+                                if (imageFile.exists()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(imageFile)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = mealPlan.recipeTitle,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(200.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
                             }
                         }
 
@@ -884,11 +917,12 @@ fun RecipeSelectionItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (!recipe.imageUri.isNullOrEmpty()) {
-                val imageFile = File(recipe.imageUri)
-                if (imageFile.exists()) {
+                val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
+
+                if (isUrl) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageFile)
+                            .data(recipe.imageUri)
                             .crossfade(true)
                             .build(),
                         contentDescription = recipe.title,
@@ -897,6 +931,21 @@ fun RecipeSelectionItem(
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Crop
                     )
+                } else {
+                    val imageFile = File(recipe.imageUri)
+                    if (imageFile.exists()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageFile)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = recipe.title,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
             }
 
