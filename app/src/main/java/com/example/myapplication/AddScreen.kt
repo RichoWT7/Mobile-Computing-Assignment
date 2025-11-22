@@ -103,36 +103,24 @@ class AddRecipeViewModel(application: Application) : AndroidViewModel(applicatio
         val state = _uiState.value
         val userId = auth.currentUser?.uid
 
-        println("DEBUG: saveRecipe called")
-        println("DEBUG: Current user: ${auth.currentUser?.email}")
-        println("DEBUG: User ID: $userId")
-
         if (userId == null) {
-            println("DEBUG: No user ID - not logged in")
-            _uiState.value = state.copy(
-                isSaving = false,
-                message = "Please log in to save recipes"
-            )
+            _uiState.value = state.copy(message = "Please log in to save recipes")
             return
         }
 
         if (state.title.isEmpty()) {
-            println("DEBUG: Title is empty")
             _uiState.value = state.copy(message = "Please enter a title")
             return
         }
 
         if (state.description.isEmpty()) {
-            println("DEBUG: Description is empty")
             _uiState.value = state.copy(message = "Please enter a description")
             return
         }
 
-        println("DEBUG: Starting coroutine")
         viewModelScope.launch {
             try {
                 _uiState.value = state.copy(isSaving = true, message = "Saving recipe...")
-                println("DEBUG: Starting save, isSaving = true")
 
                 val permanentImagePath = state.selectedImageUri?.let { uri ->
                     saveImageToInternalStorage(uri, context)
@@ -150,42 +138,20 @@ class AddRecipeViewModel(application: Application) : AndroidViewModel(applicatio
                     "timestamp" to System.currentTimeMillis()
                 )
 
-                println("DEBUG: Sending to Firebase...")
-
                 firestore.collection("users")
                     .document(userId)
                     .collection("saved_recipes")
                     .add(recipeData)
-                    .addOnSuccessListener {
-                        println("DEBUG: Firebase confirmed save")
-                    }
-                    .addOnFailureListener { e ->
-                        println("DEBUG: Firebase error but might still save: ${e.message}")
-                    }
+                    .await()
 
-                kotlinx.coroutines.delay(500)
+                _uiState.value = AddRecipeUiState(message = "Recipe saved!")
 
-                println("DEBUG: Recipe sent to Firebase (saving in background)")
-
-                _uiState.value = AddRecipeUiState(
-                    isSaving = false,
-                    message = "Recipe saved successfully!"
-                )
-                println("DEBUG: Reset form state")
-
-            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                println("DEBUG: Timeout saving recipe")
-                _uiState.value = state.copy(
-                    isSaving = false,
-                    message = "Timeout - check your internet connection"
-                )
             } catch (e: Exception) {
-                println("DEBUG: Error saving recipe: ${e.message}")
-                e.printStackTrace()
                 _uiState.value = state.copy(
                     isSaving = false,
                     message = "Error: ${e.message}"
                 )
+                e.printStackTrace()
             }
         }
     }
@@ -236,7 +202,6 @@ fun AddScreen(
         viewModel.updateImage(uri)
     }
 
-    // Show toast messages
     LaunchedEffect(uiState.message) {
         uiState.message?.let { message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
@@ -263,7 +228,7 @@ fun AddScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Image Section
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -286,7 +251,6 @@ fun AddScreen(
                             contentScale = ContentScale.Crop
                         )
 
-                        // Remove image button
                         IconButton(
                             onClick = { viewModel.updateImage(null) },
                             modifier = Modifier
@@ -387,8 +351,8 @@ fun AddScreen(
             )
 
             val dietaryOptions = listOf(
-                "Vegetarian", "Vegan", "Gluten-Free",
-                "Keto", "Paleo", "Dairy-Free"
+                "None", "Vegan", "Gluten-Free",
+                "Vegetarian", "Protein", "Dairy-Free"
             )
 
             Row(

@@ -38,15 +38,14 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Updated HomeScreen UI State with Comments
 data class HomeUiState(
     val recipes: List<CommunityRecipe> = emptyList(),
     val filteredRecipes: List<CommunityRecipe> = emptyList(),
     val searchQuery: String = "",
     val selectedDietaryFilter: String = "All",
     val expandedRecipeId: String? = null,
-    val showComments: String? = null, // Recipe ID for which to show comments
-    val comments: Map<String, List<Comment>> = emptyMap(), // Recipe ID -> Comments
+    val showComments: String? = null,
+    val comments: Map<String, List<Comment>> = emptyMap(),
     val newCommentText: String = "",
     val isLoading: Boolean = false,
     val message: String? = null
@@ -64,31 +63,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadRecipes() {
-        viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(isLoading = true)
-
-                val snapshot = firestore.collection("community_recipes")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
-                    .get()
-                    .await()
-
-                val recipes = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(CommunityRecipe::class.java)?.copy(id = doc.id)
+        firestore.collection("community_recipes")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        message = "Error loading recipes: ${error.message}"
+                    )
+                    return@addSnapshotListener
                 }
+
+                val recipes = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(CommunityRecipe::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
 
                 _uiState.value = _uiState.value.copy(
                     recipes = recipes,
                     filteredRecipes = recipes,
                     isLoading = false
                 )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    message = "Error loading recipes"
-                )
+
+                applyFilters()
             }
-        }
     }
 
     fun updateSearchQuery(query: String) {
@@ -198,6 +195,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     message = "Comment added!"
                 )
 
+                // Reload comments
                 loadComments(recipeId)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(message = "Error adding comment")
@@ -217,7 +215,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                 _uiState.value = _uiState.value.copy(message = "Comment deleted")
 
-                // Reload comments
                 loadComments(recipeId)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(message = "Error deleting comment")
@@ -311,7 +308,6 @@ fun HomeScreen(
         }
     }
 
-    // Comments Dialog
     uiState.showComments?.let { recipeId ->
         CommentsDialog(
             recipeId = recipeId,
@@ -358,7 +354,7 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(listOf("All", "Vegetarian", "Vegan", "Gluten-Free", "Keto", "Paleo")) { filter ->
+                items(listOf("All", "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Protein")) { filter ->
                     FilterChip(
                         selected = uiState.selectedDietaryFilter == filter,
                         onClick = { viewModel.updateDietaryFilter(filter) },
@@ -449,7 +445,6 @@ fun CommunityRecipeCard(
                 }
             }
 
-            // Image
             if (recipe.imageUrl.isNotEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -553,7 +548,6 @@ fun CommentsDialog(
                     .fillMaxWidth()
                     .heightIn(max = 500.dp)
             ) {
-
                 OutlinedTextField(
                     value = newCommentText,
                     onValueChange = onCommentTextChange,
@@ -625,7 +619,6 @@ fun CommentItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // User Avatar
                     Box(
                         modifier = Modifier
                             .size(32.dp)

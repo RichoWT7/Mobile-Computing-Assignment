@@ -160,28 +160,37 @@ class SavedViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 _uiState.value = _uiState.value.copy(
                     isUploading = true,
-                    uploadProgress = "Preparing to upload..."
+                    uploadProgress = "Preparing to share..."
                 )
 
                 var imageUrl = ""
 
                 if (!recipe.imageUri.isNullOrEmpty()) {
-                    val imageFile = File(recipe.imageUri)
-                    if (imageFile.exists()) {
+                    val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
+
+                    if (isUrl) {
+                        imageUrl = recipe.imageUri
                         _uiState.value = _uiState.value.copy(
-                            uploadProgress = "Uploading image..."
+                            uploadProgress = "Using existing image..."
                         )
-
-                        imageUrl = ImgurUploader.uploadImage(imageFile) ?: ""
-
-                        if (imageUrl.isEmpty()) {
+                    } else {
+                        val imageFile = File(recipe.imageUri)
+                        if (imageFile.exists()) {
                             _uiState.value = _uiState.value.copy(
-                                uploadProgress = "Image upload failed, sharing without image"
+                                uploadProgress = "Uploading image to Imgur..."
                             )
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                uploadProgress = "Image uploaded successfully!"
-                            )
+
+                            imageUrl = ImgurUploader.uploadImage(imageFile) ?: ""
+
+                            if (imageUrl.isEmpty()) {
+                                _uiState.value = _uiState.value.copy(
+                                    uploadProgress = "Image upload failed, sharing without image"
+                                )
+                            } else {
+                                _uiState.value = _uiState.value.copy(
+                                    uploadProgress = "Image uploaded successfully!"
+                                )
+                            }
                         }
                     }
                 }
@@ -213,20 +222,20 @@ class SavedViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
                     uploadProgress = "",
-                    message = "Recipe shared to community!"
+                    message = "✅ Recipe shared to community!"
                 )
 
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
                     uploadProgress = "",
-                    message = "Upload timed out"
+                    message = "❌ Upload timed out"
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
                     uploadProgress = "",
-                    message = "Error: ${e.message}"
+                    message = "❌ Error: ${e.message}"
                 )
             }
         }
@@ -247,7 +256,6 @@ fun SavedScreen(
     var showDeleteDialog by remember { mutableStateOf<Recipe?>(null) }
     var showShareDialog by remember { mutableStateOf<Recipe?>(null) }
 
-    // Show toast messages
     LaunchedEffect(uiState.message) {
         uiState.message?.let { message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
@@ -255,7 +263,6 @@ fun SavedScreen(
         }
     }
 
-    // Delete confirmation dialog
     showDeleteDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -277,7 +284,6 @@ fun SavedScreen(
         )
     }
 
-    // Share confirmation dialog
     showShareDialog?.let { recipe ->
         AlertDialog(
             onDismissRequest = { if (!uiState.isUploading) showShareDialog = null },
@@ -312,7 +318,6 @@ fun SavedScreen(
         )
     }
 
-    // Auto-close dialog after successful upload
     LaunchedEffect(uiState.isUploading) {
         if (!uiState.isUploading && showShareDialog != null && uiState.message?.contains("shared") == true) {
             showShareDialog = null
@@ -335,7 +340,6 @@ fun SavedScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Search Bar
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
@@ -362,7 +366,6 @@ fun SavedScreen(
                 singleLine = true
             )
 
-            // Recipe List
             if (uiState.filteredRecipes.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -413,20 +416,16 @@ fun SavedRecipeCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Collapsed view
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Image
                 if (!recipe.imageUri.isNullOrEmpty()) {
-                    // Check if it's a URL (starts with http) or a local file path
                     val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
 
                     if (isUrl) {
-                        // Load from URL (community recipes)
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(recipe.imageUri)
@@ -482,7 +481,6 @@ fun SavedRecipeCard(
                 }
             }
 
-            // Expanded view
             if (isExpanded) {
                 Column(
                     modifier = Modifier
@@ -492,7 +490,6 @@ fun SavedRecipeCard(
                     Divider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Large image
                     if (!recipe.imageUri.isNullOrEmpty()) {
                         val isUrl = recipe.imageUri.startsWith("http://") || recipe.imageUri.startsWith("https://")
 
@@ -552,7 +549,6 @@ fun SavedRecipeCard(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Action buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
